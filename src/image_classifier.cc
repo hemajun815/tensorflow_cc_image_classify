@@ -149,14 +149,50 @@ void ImageClassifier::build_cnn_model()
     data_flow = tfop::Reshape(root, data_flow, {64, size});
 
     // fully connection layer 1 ==> [64, 256]
+    auto w_fc1 = tfop::Variable(root, {size, 256}, DT::DT_FLOAT);
+    auto init_w_fc1 = tfop::RandomNormal(root, {size, 256}, DT::DT_FLOAT);
+    auto assign_w_fc1 = tfop::Assign(root, w_fc1, init_w_fc1);
+    auto b_fc1 = tfop::Variable(root, {256}, DT::DT_FLOAT);
+    auto init_b_fc1 = tfop::Const(root, 0.f, {256});
+    auto assign_b_fc1 = tfop::Assign(root, b_fc1, init_b_fc1);
+    data_flow = tfop::Add(root, tfop::MatMul(root, data_flow, w_fc1), b_fc1);
+    data_flow = tfop::Relu(root, data_flow);
 
     // fully connection layer 2 ==> [64, 10]
+    auto w_fc2 = tfop::Variable(root, {size, 10}, DT::DT_FLOAT);
+    auto init_w_fc2 = tfop::RandomNormal(root, {size, 10}, DT::DT_FLOAT);
+    auto assign_w_fc2 = tfop::Assign(root, w_fc2, init_w_fc2);
+    auto b_fc2 = tfop::Variable(root, {10}, DT::DT_FLOAT);
+    auto init_b_fc2 = tfop::Const(root, 0.f, {10});
+    auto assign_b_fc2 = tfop::Assign(root, b_fc2, init_b_fc2);
+    data_flow = tfop::Add(root, tfop::MatMul(root, data_flow, w_fc2), b_fc2);
+    auto logits = data_flow;
 
     // accuracy ==> []
+    auto result = tfop::Equal(root, tfop::ArgMax(root, labels, 1), tfop::ArgMax(root, logits, 1));
+    this->m_outputlist.push_back(tfop::ReduceMean(root, tfop::Cast(root, result, DT::DT_FLOAT), 0));
 
     // loss function ==> []
+    auto softmax = tfop::Softmax(root, logits);
+    auto loss = tfop::Square(root, tfop::Sub(root, softmax, labels));
+    this->m_outputlist.push_back(tfop::ReduceSum(root, loss, {0, 1}));
 
     // gradients
+    std::vector<tf::Output> grad_outputs;
+    TF_CHECK_OK(tf::AddSymbolicGradients(root, {loss}, {b_conv1, b_conv2, w_fc1, b_fc1, w_fc2, b_fc2}, &grad_outputs));
+    auto learn_rate = tfop::Const(root, 0.01f, {});
+    this->m_outputlist.push_back(tfop::ApplyGradientDescent(root, b_conv1, learn_rate, grad_outputs[0]));
+    this->m_outputlist.push_back(tfop::ApplyGradientDescent(root, b_conv2, learn_rate, grad_outputs[1]));
+    this->m_outputlist.push_back(tfop::ApplyGradientDescent(root, w_fc1, learn_rate, grad_outputs[2]));
+    this->m_outputlist.push_back(tfop::ApplyGradientDescent(root, b_fc1, learn_rate, grad_outputs[3]));
+    this->m_outputlist.push_back(tfop::ApplyGradientDescent(root, w_fc2, learn_rate, grad_outputs[4]));
+    this->m_outputlist.push_back(tfop::ApplyGradientDescent(root, b_fc2, learn_rate, grad_outputs[5]));
+
+    // session
+    this->m_p_session = new tf::ClientSession(root);
+    TF_CHECK_OK(this->m_p_session->Run({assign_b_conv1, assign_b_conv2, assign_w_fc1, assign_b_fc1,
+                                        assign_w_fc1, assign_b_fc1},
+                                       nullptr));
 }
 
 template <typename T>

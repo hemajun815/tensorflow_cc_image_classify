@@ -120,7 +120,7 @@ void ImageClassifier::build_cnn_model()
         auto normalized_image = tfop::Div(root, tfop::Cast(root, reshaped_image, DT::DT_FLOAT), 255.f);
         vct_image.push_back(normalized_image);
     }
-    // [64*28*28*1]
+    // data_flow ==> [64*28*28*1]
     tf::Output data_flow = tfop::Stack(root, vct_image);
     auto labels = tfop::OneHot(root, *this->m_p_placeholder_labels, this->m_nof_class, 1.f, 0.f);
 
@@ -143,6 +143,20 @@ void ImageClassifier::build_cnn_model()
 
     // max pool 2 < ksize=[1*2*2*1] strides=[1*2*2*1] ==> [64*7*7*64]
     data_flow = tfop::MaxPool(root, data_flow, {1, 2, 2, 1}, {1, 2, 2, 1}, "SAME");
+
+    // flat ==> [64, 3136]
+    auto size = this->m_image_width * this->m_image_height * 64 / 4 / 4;
+    data_flow = tfop::Reshape(root, data_flow, {64, size});
+
+    // fully connection layer 1 ==> [64, 256]
+
+    // fully connection layer 2 ==> [64, 10]
+
+    // accuracy ==> []
+
+    // loss function ==> []
+
+    // gradients
 }
 
 template <typename T>

@@ -120,8 +120,29 @@ void ImageClassifier::build_cnn_model()
         auto normalized_image = tfop::Div(root, tfop::Cast(root, reshaped_image, DT::DT_FLOAT), 255.f);
         vct_image.push_back(normalized_image);
     }
+    // [64*28*28*1]
     tf::Output data_flow = tfop::Stack(root, vct_image);
     auto labels = tfop::OneHot(root, *this->m_p_placeholder_labels, this->m_nof_class, 1.f, 0.f);
+
+    // conv layer 1 < filter=[5*5*1*32] strides=[1*1*1*1] ==> [64*28*28*32]
+    data_flow = tfop::Conv2D(root, data_flow, {5, 5, 1, 32}, {1, 1, 1, 1}, "SAME");
+    auto b_conv1 = tfop::Variable(root, {32}, DT::DT_FLOAT);
+    auto init_b_conv1 = tfop::Const(root, 0.f, {32});
+    auto assign_b_conv1 = tfop::Assign(root, b_conv1, init_b_conv1);
+    data_flow = tfop::Relu(root, tfop::Add(root, data_flow, b_conv1));
+
+    // max pool 1 < ksize=[1*2*2*1] strides=[1*2*2*1] ==> [64*14*14*32]
+    data_flow = tfop::MaxPool(root, data_flow, {1, 2, 2, 1}, {1, 2, 2, 1}, "SAME");
+
+    // conv layer 2 < filter=[5*5*32*64] strides=[1*1*1*1] ==> [64*14*14*64]
+    data_flow = tfop::Conv2D(root, data_flow, {5, 5, 32, 64}, {1, 1, 1, 1}, "SAME");
+    auto b_conv2 = tfop::Variable(root, {64}, DT::DT_FLOAT);
+    auto init_b_conv2 = tfop::Const(root, 0.f, {64});
+    auto assign_b_conv2 = tfop::Assign(root, b_conv2, init_b_conv2);
+    data_flow = tfop::Relu(root, tfop::Add(root, data_flow, b_conv2));
+
+    // max pool 2 < ksize=[1*2*2*1] strides=[1*2*2*1] ==> [64*7*7*64]
+    data_flow = tfop::MaxPool(root, data_flow, {1, 2, 2, 1}, {1, 2, 2, 1}, "SAME");
 }
 
 template <typename T>

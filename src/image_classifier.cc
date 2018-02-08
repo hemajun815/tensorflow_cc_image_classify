@@ -8,7 +8,7 @@ ImageClassifier::ImageClassifier(const int &batch_size, const int &image_width, 
     : m_batch_size(batch_size), m_image_width(image_width), m_image_height(image_height),
       m_image_chenal(image_chenal), m_nof_class(nof_class)
 {
-    this->build_model();
+    this->build_fc_model();
 }
 
 ImageClassifier::~ImageClassifier()
@@ -48,7 +48,7 @@ void ImageClassifier::test(const std::vector<std::string> &filenames, const std:
     accuracy = *outputs[0].scalar<float>().data();
 }
 
-void ImageClassifier::build_model()
+void ImageClassifier::build_fc_model()
 {
     // input layer
     auto root = tf::Scope::NewRootScope();
@@ -102,7 +102,29 @@ void ImageClassifier::build_model()
     TF_CHECK_OK(this->m_p_session->Run({assign_w_fc, assign_b_fc}, nullptr));
 }
 
-template<typename T>
+void ImageClassifier::build_cnn_model()
+{
+    // input layer
+    auto root = tf::Scope::NewRootScope();
+    this->m_p_plcaeholder_filenames = new tfop::Placeholder(root, DT::DT_STRING);
+    this->m_p_placeholder_labels = new tfop::Placeholder(root, DT::DT_INT32);
+    auto list_filename = tfop::Unstack(root, *this->m_p_plcaeholder_filenames, this->m_batch_size);
+    std::vector<tf::Output> vct_image;
+    for (auto i = 0; i < this->m_batch_size; i++)
+    {
+        auto file_reader = tfop::ReadFile(root, list_filename[i]);
+        auto image_reader = tfop::DecodePng(root, file_reader,
+                                            tfop::DecodePng::Channels(this->m_image_chenal));
+        auto reshaped_image = tfop::Reshape(root, image_reader,
+                                            {this->m_image_width, this->m_image_height, this->m_image_chenal});
+        auto normalized_image = tfop::Div(root, tfop::Cast(root, reshaped_image, DT::DT_FLOAT), 255.f);
+        vct_image.push_back(normalized_image);
+    }
+    tf::Output data_flow = tfop::Stack(root, vct_image);
+    auto labels = tfop::OneHot(root, *this->m_p_placeholder_labels, this->m_nof_class, 1.f, 0.f);
+}
+
+template <typename T>
 tf::Tensor ImageClassifier::parse_input(const std::vector<T> &input, const DT &dt)
 {
     tf::Tensor tensor(dt, {this->m_batch_size});

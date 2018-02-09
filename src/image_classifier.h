@@ -14,7 +14,8 @@ public:
     void test(const std::vector<std::string> &filenames, const std::vector<int> &labels, float &accuracy);
 
 private:
-    void build_model();
+    void build_fc_model();
+    void build_cnn_model();
     template<typename T>
     tf::Tensor parse_input(const std::vector<T> &input, const tf::DataType &dt);
 

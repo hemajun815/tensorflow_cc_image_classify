@@ -8,8 +8,8 @@ ImageClassifier::ImageClassifier(const int &batch_size, const int &image_width, 
     : m_batch_size(batch_size), m_image_width(image_width), m_image_height(image_height),
       m_image_chenal(image_chenal), m_nof_class(nof_class)
 {
-    // this->build_fc_model();
-    this->build_cnn_model();
+    this->build_fc_model();
+    // this->build_cnn_model();
 }
 
 ImageClassifier::~ImageClassifier()
@@ -22,30 +22,18 @@ ImageClassifier::~ImageClassifier()
 void ImageClassifier::train(const std::vector<std::string> &filenames, const std::vector<int> &labels,
                             float &accuracy, float &loss)
 {
-    // parse input
-    tf::Tensor input_filename = this->parse_input<std::string>(filenames, DT::DT_STRING);
-    tf::Tensor input_label = this->parse_input<int>(labels, DT::DT_INT32);
-
     // train
     std::vector<tf::Tensor> outputs;
-    TF_CHECK_OK(this->m_p_session->Run({{*this->m_p_plcaeholder_filenames, input_filename},
-                                        {*this->m_p_placeholder_labels, input_label}},
-                                       this->m_outputlist, &outputs));
+    this->run(filenames, labels, this->m_outputlist, outputs);
     accuracy = *outputs[0].scalar<float>().data();
     loss = *outputs[1].scalar<float>().data();
 }
 
 void ImageClassifier::test(const std::vector<std::string> &filenames, const std::vector<int> &labels, float &accuracy)
 {
-    // parse input
-    tf::Tensor input_filename = this->parse_input<std::string>(filenames, DT::DT_STRING);
-    tf::Tensor input_label = this->parse_input<int>(labels, DT::DT_INT32);
-
     // test
     std::vector<tf::Tensor> outputs;
-    TF_CHECK_OK(this->m_p_session->Run({{*this->m_p_plcaeholder_filenames, input_filename},
-                                        {*this->m_p_placeholder_labels, input_label}},
-                                       {this->m_outputlist[0]}, &outputs));
+    this->run(filenames, labels, {this->m_outputlist[0]}, outputs);
     accuracy = *outputs[0].scalar<float>().data();
 }
 
@@ -203,4 +191,17 @@ tf::Tensor ImageClassifier::parse_input(const std::vector<T> &input, const DT &d
     tf::Tensor tensor(dt, {this->m_batch_size});
     std::copy_n(input.begin(), input.size(), tensor.flat<T>().data());
     return tensor;
+}
+
+void ImageClassifier::run(const std::vector<std::string> &filenames, const std::vector<int> &labels,
+                          const std::vector<tf::Output> &ins, std::vector<tf::Tensor> &outs)
+{
+    // parse input
+    tf::Tensor input_filename = this->parse_input<std::string>(filenames, DT::DT_STRING);
+    tf::Tensor input_label = this->parse_input<int>(labels, DT::DT_INT32);
+
+    // run
+    TF_CHECK_OK(this->m_p_session->Run({{*this->m_p_plcaeholder_filenames, input_filename},
+                                        {*this->m_p_placeholder_labels, input_label}},
+                                       ins, &outs));
 }

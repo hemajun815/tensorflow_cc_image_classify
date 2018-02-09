@@ -14,6 +14,7 @@ public:
     void test(const std::vector<std::string> &filenames, const std::vector<int> &labels, float &accuracy);
 
 private:
+    void read_batch_image(tf::Scope &scope, tf::Output &images, tf::Output &labels);
     void build_fc_model();
     void build_cnn_model();
     template <typename T>

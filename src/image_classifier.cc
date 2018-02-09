@@ -37,26 +37,34 @@ void ImageClassifier::test(const std::vector<std::string> &filenames, const std:
     accuracy = *outputs[0].scalar<float>().data();
 }
 
+void ImageClassifier::read_batch_image(tf::Scope &scope, tf::Output &images, tf::Output &labels)
+{
+    auto list_filename = tfop::Unstack(scope, *this->m_p_plcaeholder_filenames, this->m_batch_size);
+    std::vector<tf::Output> vct_image;
+    for (auto i = 0; i < this->m_batch_size; i++)
+    {
+        auto file_reader = tfop::ReadFile(scope, list_filename[i]);
+        auto image_reader = tfop::DecodePng(scope, file_reader,
+                                            tfop::DecodePng::Channels(this->m_image_chenal));
+        auto reshaped_image = tfop::Reshape(scope, image_reader,
+                                            {this->m_image_height, this->m_image_width, this->m_image_chenal});
+        auto normalized_image = tfop::Div(scope, tfop::Cast(scope, reshaped_image, DT::DT_FLOAT), 255.f);
+        vct_image.push_back(normalized_image);
+    }
+    images = tfop::Stack(scope, vct_image);
+    labels = tfop::OneHot(scope, *this->m_p_placeholder_labels, this->m_nof_class, 1.f, 0.f);
+}
+
 void ImageClassifier::build_fc_model()
 {
     // input layer
     auto root = tf::Scope::NewRootScope();
     this->m_p_plcaeholder_filenames = new tfop::Placeholder(root, DT::DT_STRING);
     this->m_p_placeholder_labels = new tfop::Placeholder(root, DT::DT_INT32);
-    auto list_filename = tfop::Unstack(root, *this->m_p_plcaeholder_filenames, this->m_batch_size);
-    auto image_size = this->m_image_width * this->m_image_height * this->m_image_chenal;
-    std::vector<tf::Output> vct_image;
-    for (auto i = 0; i < this->m_batch_size; i++)
-    {
-        auto file_reader = tfop::ReadFile(root, list_filename[i]);
-        auto image_reader = tfop::DecodePng(root, file_reader,
-                                            tfop::DecodePng::Channels(this->m_image_chenal));
-        auto reshaped_image = tfop::Reshape(root, image_reader, {image_size});
-        auto normalized_image = tfop::Div(root, tfop::Cast(root, reshaped_image, DT::DT_FLOAT), 255.f);
-        vct_image.push_back(normalized_image);
-    }
-    tf::Output data_flow = tfop::Stack(root, vct_image);
-    auto labels = tfop::OneHot(root, *this->m_p_placeholder_labels, this->m_nof_class, 1.f, 0.f);
+    tf::Output data_flow, labels;
+    this->read_batch_image(root, data_flow, labels);
+    auto image_size = this->m_image_height * this->m_image_width * this->m_image_chenal;
+    data_flow = tfop::Reshape(root, data_flow, {this->m_batch_size, image_size});
 
     // fully connection layer
     auto w_fc = tfop::Variable(root, {image_size, this->m_nof_class}, DT::DT_FLOAT);
@@ -97,21 +105,10 @@ void ImageClassifier::build_cnn_model()
     auto root = tf::Scope::NewRootScope();
     this->m_p_plcaeholder_filenames = new tfop::Placeholder(root, DT::DT_STRING);
     this->m_p_placeholder_labels = new tfop::Placeholder(root, DT::DT_INT32);
-    auto list_filename = tfop::Unstack(root, *this->m_p_plcaeholder_filenames, this->m_batch_size);
-    std::vector<tf::Output> vct_image;
-    for (auto i = 0; i < this->m_batch_size; i++)
-    {
-        auto file_reader = tfop::ReadFile(root, list_filename[i]);
-        auto image_reader = tfop::DecodePng(root, file_reader,
-                                            tfop::DecodePng::Channels(this->m_image_chenal));
-        auto reshaped_image = tfop::Reshape(root, image_reader,
-                                            {this->m_image_width, this->m_image_height, this->m_image_chenal});
-        auto normalized_image = tfop::Div(root, tfop::Cast(root, reshaped_image, DT::DT_FLOAT), 255.f);
-        vct_image.push_back(normalized_image);
-    }
+
     // data_flow ==> [64*28*28*1]
-    tf::Output data_flow = tfop::Stack(root, vct_image);
-    auto labels = tfop::OneHot(root, *this->m_p_placeholder_labels, this->m_nof_class, 1.f, 0.f);
+    tf::Output data_flow, labels;
+    this->read_batch_image(root, data_flow, labels);
 
     // conv layer 1 < filter=[5*5*1*32] strides=[1*1*1*1] ==> [64*28*28*32]
     data_flow = tfop::Conv2D(root, data_flow, tf::Tensor(DT::DT_FLOAT, {5, 5, 1, 32}), {1, 1, 1, 1}, "SAME");

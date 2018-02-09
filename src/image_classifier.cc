@@ -125,7 +125,7 @@ void ImageClassifier::build_cnn_model()
     auto labels = tfop::OneHot(root, *this->m_p_placeholder_labels, this->m_nof_class, 1.f, 0.f);
 
     // conv layer 1 < filter=[5*5*1*32] strides=[1*1*1*1] ==> [64*28*28*32]
-    data_flow = tfop::Conv2D(root, data_flow, {5, 5, 1, 32}, {1, 1, 1, 1}, "SAME");
+    data_flow = tfop::Conv2D(root, data_flow, tf::Tensor(DT::DT_FLOAT, {5, 5, 1, 32}), {1, 1, 1, 1}, "SAME");
     auto b_conv1 = tfop::Variable(root, {32}, DT::DT_FLOAT);
     auto init_b_conv1 = tfop::Const(root, 0.f, {32});
     auto assign_b_conv1 = tfop::Assign(root, b_conv1, init_b_conv1);
@@ -135,7 +135,7 @@ void ImageClassifier::build_cnn_model()
     data_flow = tfop::MaxPool(root, data_flow, {1, 2, 2, 1}, {1, 2, 2, 1}, "SAME");
 
     // conv layer 2 < filter=[5*5*32*64] strides=[1*1*1*1] ==> [64*14*14*64]
-    data_flow = tfop::Conv2D(root, data_flow, {5, 5, 32, 64}, {1, 1, 1, 1}, "SAME");
+    data_flow = tfop::Conv2D(root, data_flow, tf::Tensor(DT::DT_FLOAT, {5, 5, 32, 64}), {1, 1, 1, 1}, "SAME");
     auto b_conv2 = tfop::Variable(root, {64}, DT::DT_FLOAT);
     auto init_b_conv2 = tfop::Const(root, 0.f, {64});
     auto assign_b_conv2 = tfop::Assign(root, b_conv2, init_b_conv2);

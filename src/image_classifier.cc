@@ -8,7 +8,8 @@ ImageClassifier::ImageClassifier(const int &batch_size, const int &image_width, 
     : m_batch_size(batch_size), m_image_width(image_width), m_image_height(image_height),
       m_image_chenal(image_chenal), m_nof_class(nof_class)
 {
-    this->build_fc_model();
+    // this->build_fc_model();
+    this->build_cnn_model();
 }
 
 ImageClassifier::~ImageClassifier()
@@ -159,8 +160,8 @@ void ImageClassifier::build_cnn_model()
     data_flow = tfop::Relu(root, data_flow);
 
     // fully connection layer 2 ==> [64, 10]
-    auto w_fc2 = tfop::Variable(root, {size, 10}, DT::DT_FLOAT);
-    auto init_w_fc2 = tfop::RandomNormal(root, {size, 10}, DT::DT_FLOAT);
+    auto w_fc2 = tfop::Variable(root, {256, 10}, DT::DT_FLOAT);
+    auto init_w_fc2 = tfop::RandomNormal(root, {256, 10}, DT::DT_FLOAT);
     auto assign_w_fc2 = tfop::Assign(root, w_fc2, init_w_fc2);
     auto b_fc2 = tfop::Variable(root, {10}, DT::DT_FLOAT);
     auto init_b_fc2 = tfop::Const(root, 0.f, {10});
@@ -170,12 +171,13 @@ void ImageClassifier::build_cnn_model()
 
     // accuracy ==> []
     auto result = tfop::Equal(root, tfop::ArgMax(root, labels, 1), tfop::ArgMax(root, logits, 1));
-    this->m_outputlist.push_back(tfop::ReduceMean(root, tfop::Cast(root, result, DT::DT_FLOAT), 0));
+    auto accuracy = tfop::ReduceMean(root, tfop::Cast(root, result, DT::DT_FLOAT), 0);
+    this->m_outputlist.push_back(accuracy);
 
     // loss function ==> []
     auto softmax = tfop::Softmax(root, logits);
-    auto loss = tfop::Square(root, tfop::Sub(root, softmax, labels));
-    this->m_outputlist.push_back(tfop::ReduceSum(root, loss, {0, 1}));
+    auto loss = tfop::ReduceSum(root, tfop::Square(root, tfop::Sub(root, softmax, labels)), {0, 1});
+    this->m_outputlist.push_back(loss);
 
     // gradients
     std::vector<tf::Output> grad_outputs;
@@ -191,7 +193,7 @@ void ImageClassifier::build_cnn_model()
     // session
     this->m_p_session = new tf::ClientSession(root);
     TF_CHECK_OK(this->m_p_session->Run({assign_b_conv1, assign_b_conv2, assign_w_fc1, assign_b_fc1,
-                                        assign_w_fc1, assign_b_fc1},
+                                        assign_w_fc2, assign_b_fc2},
                                        nullptr));
 }
 

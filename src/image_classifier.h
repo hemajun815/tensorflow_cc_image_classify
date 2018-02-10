@@ -17,7 +17,8 @@ private:
     void read_batch_image(const tf::Scope &scope, tf::Output &images, tf::Output &labels);
     tf::Output accuracy(const tf::Scope &scope, const tf::Output &logits, const tf::Output &labels);
     tf::Output softmax_loss(const tf::Scope &scope, const tf::Output &logits, const tf::Output &labels);
-    void gradients_op(const tf::Scope &scope, const tf::OutputList &outputs, const tf::OutputList &inputs, const float &learn_rate);
+    void gradients_op(const tf::Scope &scope, const tf::OutputList &outputs, const tf::OutputList &inputs, 
+                      const float &learn_rate);
     void build_fc_model();
     void build_cnn_model();
     template <typename T>

@@ -66,7 +66,8 @@ tf::Output ImageClassifier::softmax_loss(const tf::Scope &scope, const tf::Outpu
     return tfop::ReduceSum(scope, loss, {0, 1});
 }
 
-void ImageClassifier::gradients_op(const tf::Scope &scope, const tf::OutputList &outputs, const tf::OutputList &inputs, const float &learn_rate)
+void ImageClassifier::gradients_op(const tf::Scope &scope, const tf::OutputList &outputs,
+                                   const tf::OutputList &inputs, const float &learn_rate)
 {
     std::vector<tf::Output> grad_outputs;
     tf::AddSymbolicGradients(scope, outputs, inputs, &grad_outputs);

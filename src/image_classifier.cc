@@ -55,6 +55,19 @@ void ImageClassifier::read_batch_image(tf::Scope &scope, tf::Output &images, tf:
     labels = tfop::OneHot(scope, *this->m_p_placeholder_labels, this->m_nof_class, 1.f, 0.f);
 }
 
+tf::Output ImageClassifier::accuracy(tf::Scope &scope, const tf::Output &logits, const tf::Output &labels)
+{
+    auto result = tfop::Equal(scope, tfop::ArgMax(scope, labels, 1), tfop::ArgMax(scope, logits, 1));
+    return tfop::ReduceMean(scope, tfop::Cast(scope, result, DT::DT_FLOAT), 0);
+}
+
+tf::Output ImageClassifier::softmax_loss(tf::Scope &scope, const tf::Output &logits, const tf::Output &labels)
+{
+    auto softmax = tfop::Softmax(scope, logits);
+    auto loss = tfop::Square(scope, tfop::Sub(scope, softmax, labels));
+    return tfop::ReduceSum(scope, loss, {0, 1});
+}
+
 void ImageClassifier::build_fc_model()
 {
     // input layer
@@ -75,17 +88,14 @@ void ImageClassifier::build_fc_model()
     auto assign_b_fc = tfop::Assign(root, b_fc, init_b_fc);
     data_flow = tfop::MatMul(root, data_flow, w_fc);
     data_flow = tfop::Add(root, data_flow, b_fc);
-    data_flow = tfop::Relu(root, data_flow);
     auto logits = data_flow;
 
     // accuracy
-    auto result = tfop::Equal(root, tfop::ArgMax(root, labels, 1), tfop::ArgMax(root, logits, 1));
-    this->m_outputlist.push_back(tfop::ReduceMean(root, tfop::Cast(root, result, DT::DT_FLOAT), 0));
+    this->m_outputlist.push_back(this->accuracy(root, logits, labels));
 
     // loss function
-    auto softmax = tfop::Softmax(root, logits);
-    auto loss = tfop::Square(root, tfop::Sub(root, softmax, labels));
-    this->m_outputlist.push_back(tfop::ReduceSum(root, loss, {0, 1}));
+    auto loss = this->softmax_loss(root, logits, labels);
+    this->m_outputlist.push_back(loss);
 
     // gradients
     std::vector<tf::Output> grad_outputs;
@@ -155,13 +165,10 @@ void ImageClassifier::build_cnn_model()
     auto logits = data_flow;
 
     // accuracy ==> []
-    auto result = tfop::Equal(root, tfop::ArgMax(root, labels, 1), tfop::ArgMax(root, logits, 1));
-    auto accuracy = tfop::ReduceMean(root, tfop::Cast(root, result, DT::DT_FLOAT), 0);
-    this->m_outputlist.push_back(accuracy);
+    this->m_outputlist.push_back(this->accuracy(root, logits, labels));
 
     // loss function ==> []
-    auto softmax = tfop::Softmax(root, logits);
-    auto loss = tfop::ReduceSum(root, tfop::Square(root, tfop::Sub(root, softmax, labels)), {0, 1});
+    auto loss = this->softmax_loss(root, logits, labels);
     this->m_outputlist.push_back(loss);
 
     // gradients

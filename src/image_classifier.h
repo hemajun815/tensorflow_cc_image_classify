@@ -15,6 +15,8 @@ public:
 
 private:
     void read_batch_image(tf::Scope &scope, tf::Output &images, tf::Output &labels);
+    tf::Output accuracy(tf::Scope &scope, const tf::Output &logits, const tf::Output &labels);
+    tf::Output softmax_loss(tf::Scope &scope, const tf::Output &logits, const tf::Output &labels);
     void build_fc_model();
     void build_cnn_model();
     template <typename T>

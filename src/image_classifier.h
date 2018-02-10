@@ -14,10 +14,15 @@ public:
     void test(const std::vector<std::string> &filenames, const std::vector<int> &labels, float &accuracy);
 
 private:
+    void read_batch_image(tf::Scope &scope, tf::Output &images, tf::Output &labels);
+    tf::Output accuracy(tf::Scope &scope, const tf::Output &logits, const tf::Output &labels);
+    tf::Output softmax_loss(tf::Scope &scope, const tf::Output &logits, const tf::Output &labels);
     void build_fc_model();
     void build_cnn_model();
-    template<typename T>
+    template <typename T>
     tf::Tensor parse_input(const std::vector<T> &input, const tf::DataType &dt);
+    void run(const std::vector<std::string> &filenames, const std::vector<int> &labels, 
+             const std::vector<tf::Output> &ins, std::vector<tf::Tensor> &outs);
 
 private:
     int m_batch_size;

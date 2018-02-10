@@ -22,7 +22,6 @@ ImageClassifier::~ImageClassifier()
 void ImageClassifier::train(const std::vector<std::string> &filenames, const std::vector<int> &labels,
                             float &accuracy, float &loss)
 {
-    // train
     std::vector<tf::Tensor> outputs;
     this->run(filenames, labels, this->m_outputlist, outputs);
     accuracy = *outputs[0].scalar<float>().data();
@@ -31,13 +30,12 @@ void ImageClassifier::train(const std::vector<std::string> &filenames, const std
 
 void ImageClassifier::test(const std::vector<std::string> &filenames, const std::vector<int> &labels, float &accuracy)
 {
-    // test
     std::vector<tf::Tensor> outputs;
     this->run(filenames, labels, {this->m_outputlist[0]}, outputs);
     accuracy = *outputs[0].scalar<float>().data();
 }
 
-void ImageClassifier::read_batch_image(tf::Scope &scope, tf::Output &images, tf::Output &labels)
+void ImageClassifier::read_batch_image(const tf::Scope &scope, tf::Output &images, tf::Output &labels)
 {
     auto list_filename = tfop::Unstack(scope, *this->m_p_plcaeholder_filenames, this->m_batch_size);
     std::vector<tf::Output> vct_image;
@@ -55,17 +53,26 @@ void ImageClassifier::read_batch_image(tf::Scope &scope, tf::Output &images, tf:
     labels = tfop::OneHot(scope, *this->m_p_placeholder_labels, this->m_nof_class, 1.f, 0.f);
 }
 
-tf::Output ImageClassifier::accuracy(tf::Scope &scope, const tf::Output &logits, const tf::Output &labels)
+tf::Output ImageClassifier::accuracy(const tf::Scope &scope, const tf::Output &logits, const tf::Output &labels)
 {
     auto result = tfop::Equal(scope, tfop::ArgMax(scope, labels, 1), tfop::ArgMax(scope, logits, 1));
     return tfop::ReduceMean(scope, tfop::Cast(scope, result, DT::DT_FLOAT), 0);
 }
 
-tf::Output ImageClassifier::softmax_loss(tf::Scope &scope, const tf::Output &logits, const tf::Output &labels)
+tf::Output ImageClassifier::softmax_loss(const tf::Scope &scope, const tf::Output &logits, const tf::Output &labels)
 {
     auto softmax = tfop::Softmax(scope, logits);
     auto loss = tfop::Square(scope, tfop::Sub(scope, softmax, labels));
     return tfop::ReduceSum(scope, loss, {0, 1});
+}
+
+void ImageClassifier::gradients_op(const tf::Scope &scope, const tf::OutputList &outputs, const tf::OutputList &inputs, const float &learn_rate)
+{
+    std::vector<tf::Output> grad_outputs;
+    tf::AddSymbolicGradients(scope, outputs, inputs, &grad_outputs);
+    auto alpha = tfop::Const(scope, learn_rate, {});
+    for (auto i = 0; i < inputs.size(); i++)
+        this->m_outputlist.push_back(tfop::ApplyGradientDescent(scope, inputs[i], alpha, grad_outputs[i]));
 }
 
 void ImageClassifier::build_fc_model()
@@ -98,11 +105,7 @@ void ImageClassifier::build_fc_model()
     this->m_outputlist.push_back(loss);
 
     // gradients
-    std::vector<tf::Output> grad_outputs;
-    TF_CHECK_OK(tf::AddSymbolicGradients(root, {loss}, {w_fc, b_fc}, &grad_outputs));
-    auto learn_rate = tfop::Const(root, 0.01f, {});
-    this->m_outputlist.push_back(tfop::ApplyGradientDescent(root, w_fc, learn_rate, grad_outputs[0]));
-    this->m_outputlist.push_back(tfop::ApplyGradientDescent(root, b_fc, learn_rate, grad_outputs[1]));
+    this->gradients_op(root, {loss}, {w_fc, b_fc}, 0.01f);
 
     // session
     this->m_p_session = new tf::ClientSession(root);
@@ -172,15 +175,7 @@ void ImageClassifier::build_cnn_model()
     this->m_outputlist.push_back(loss);
 
     // gradients
-    std::vector<tf::Output> grad_outputs;
-    TF_CHECK_OK(tf::AddSymbolicGradients(root, {loss}, {b_conv1, b_conv2, w_fc1, b_fc1, w_fc2, b_fc2}, &grad_outputs));
-    auto learn_rate = tfop::Const(root, 0.01f, {});
-    this->m_outputlist.push_back(tfop::ApplyGradientDescent(root, b_conv1, learn_rate, grad_outputs[0]));
-    this->m_outputlist.push_back(tfop::ApplyGradientDescent(root, b_conv2, learn_rate, grad_outputs[1]));
-    this->m_outputlist.push_back(tfop::ApplyGradientDescent(root, w_fc1, learn_rate, grad_outputs[2]));
-    this->m_outputlist.push_back(tfop::ApplyGradientDescent(root, b_fc1, learn_rate, grad_outputs[3]));
-    this->m_outputlist.push_back(tfop::ApplyGradientDescent(root, w_fc2, learn_rate, grad_outputs[4]));
-    this->m_outputlist.push_back(tfop::ApplyGradientDescent(root, b_fc2, learn_rate, grad_outputs[5]));
+    this->gradients_op(root, {loss}, {b_conv1, b_conv2, w_fc1, b_fc1, w_fc2, b_fc2}, 0.01f);
 
     // session
     this->m_p_session = new tf::ClientSession(root);

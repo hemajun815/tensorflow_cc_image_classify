@@ -11,4 +11,5 @@ Mnist .png images.
 
 ## To run
 
-`make` or `make run`
+1. [compilling tensorflow source code into C++ library file](https://github.com/hemajun815/tutorial/blob/master/tensorflow/compilling-tensorflow-source-code-into-C++-library-file.md)
+2. `make` or `make run`

@@ -9,6 +9,9 @@ ImageClassifier::ImageClassifier(const int &batch_size, const int &image_width, 
       m_image_chenal(image_chenal), m_nof_class(nof_class)
 {
     this->build_fc_model();
+
+    // I have not found the right way to apply the gradients in the convolution layer.
+    // so the cnn model is under maintenance.
     // this->build_cnn_model();
 }
 

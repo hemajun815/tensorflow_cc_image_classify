@@ -10,8 +10,7 @@ ImageClassifier::ImageClassifier(const int &batch_size, const int &image_width, 
 {
     this->build_fc_model();
 
-    // I have not found the right way to apply the gradients in the convolution layer.
-    // so the cnn model is under maintenance.
+    // the cnn model is under maintenance.
     // this->build_cnn_model();
 }
 
@@ -128,7 +127,10 @@ void ImageClassifier::build_cnn_model()
     this->read_batch_image(root, data_flow, labels);
 
     // conv layer 1 < filter=[5*5*1*32] strides=[1*1*1*1] ==> [64*28*28*32]
-    data_flow = tfop::Conv2D(root, data_flow, tf::Tensor(DT::DT_FLOAT, {5, 5, 1, 32}), {1, 1, 1, 1}, "SAME");
+    auto w_conv1 = tfop::Variable(root, {5, 5, 1, 32}, tf::DataType::DT_FLOAT);
+    auto init_w_conv1 = tfop::RandomNormal(root, {5, 5, 1, 32}, tf::DataType::DT_FLOAT);
+    auto assign_w_conv1 = tfop::Assign(root, w_conv1, init_w_conv1);
+    data_flow = tfop::Conv2D(root, data_flow, w_conv1, {1, 1, 1, 1}, "SAME");
     auto b_conv1 = tfop::Variable(root, {32}, DT::DT_FLOAT);
     auto init_b_conv1 = tfop::Const(root, 0.f, {32});
     auto assign_b_conv1 = tfop::Assign(root, b_conv1, init_b_conv1);
@@ -138,7 +140,10 @@ void ImageClassifier::build_cnn_model()
     data_flow = tfop::MaxPool(root, data_flow, {1, 2, 2, 1}, {1, 2, 2, 1}, "SAME");
 
     // conv layer 2 < filter=[5*5*32*64] strides=[1*1*1*1] ==> [64*14*14*64]
-    data_flow = tfop::Conv2D(root, data_flow, tf::Tensor(DT::DT_FLOAT, {5, 5, 32, 64}), {1, 1, 1, 1}, "SAME");
+    auto w_conv2 = tfop::Variable(root, {5, 5, 32, 64}, tf::DataType::DT_FLOAT);
+    auto init_w_conv2 = tfop::RandomNormal(root, {5, 5, 32, 64}, tf::DataType::DT_FLOAT);
+    auto assign_w_conv2 = tfop::Assign(root, w_conv2, init_w_conv2);
+    data_flow = tfop::Conv2D(root, data_flow, w_conv2, {1, 1, 1, 1}, "SAME");
     auto b_conv2 = tfop::Variable(root, {64}, DT::DT_FLOAT);
     auto init_b_conv2 = tfop::Const(root, 0.f, {64});
     auto assign_b_conv2 = tfop::Assign(root, b_conv2, init_b_conv2);
@@ -179,12 +184,12 @@ void ImageClassifier::build_cnn_model()
     this->m_outputlist.push_back(loss);
 
     // gradients
-    this->gradients_op(root, {loss}, {b_conv1, b_conv2, w_fc1, b_fc1, w_fc2, b_fc2}, 0.01f);
+    this->gradients_op(root, {loss}, {w_conv1, b_conv1, w_conv2, b_conv2, w_fc1, b_fc1, w_fc2, b_fc2}, 0.01f);
 
     // session
     this->m_p_session = new tf::ClientSession(root);
-    TF_CHECK_OK(this->m_p_session->Run({assign_b_conv1, assign_b_conv2, assign_w_fc1, assign_b_fc1,
-                                        assign_w_fc2, assign_b_fc2},
+    TF_CHECK_OK(this->m_p_session->Run({assign_w_conv1, assign_b_conv1, assign_w_conv2, assign_b_conv2, assign_w_fc1,
+                                        assign_b_fc1, assign_w_fc2, assign_b_fc2},
                                        nullptr));
 }
 

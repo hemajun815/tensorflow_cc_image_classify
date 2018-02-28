@@ -2,7 +2,7 @@
 
 Load images from disk and train a classifier with TensorFlow_cc.
 
-Up to now, I applied the gradients by using 'AddSymbolicGradients' and 'ApplyGradientDescent' in the fully connection layer, but I have not found the right way to apply the gradients in the convolution layer. So **the fc model is working, but the cnn model is under maintenance.** I hope that who can give me some advice about how to apply the gradients in the convolution layer.
+Up to now, **the fc model is working, but the cnn model is under maintenance.**
 
 ## DataSet
 

@@ -8,10 +8,10 @@ ImageClassifier::ImageClassifier(const int &batch_size, const int &image_width, 
     : m_batch_size(batch_size), m_image_width(image_width), m_image_height(image_height),
       m_image_chenal(image_chenal), m_nof_class(nof_class)
 {
-    this->build_fc_model();
+    // this->build_fc_model();
 
     // the cnn model is under maintenance.
-    // this->build_cnn_model();
+    this->build_cnn_model();
 }
 
 ImageClassifier::~ImageClassifier()
@@ -127,8 +127,8 @@ void ImageClassifier::build_cnn_model()
     this->read_batch_image(root, data_flow, labels);
 
     // conv layer 1 < filter=[5*5*1*32] strides=[1*1*1*1] ==> [64*28*28*32]
-    auto w_conv1 = tfop::Variable(root, {5, 5, 1, 32}, tf::DataType::DT_FLOAT);
-    auto init_w_conv1 = tfop::RandomNormal(root, {5, 5, 1, 32}, tf::DataType::DT_FLOAT);
+    auto w_conv1 = tfop::Variable(root, {5, 5, 1, 32}, DT::DT_FLOAT);
+    auto init_w_conv1 = tfop::RandomNormal(root, {5, 5, 1, 32}, DT::DT_FLOAT);
     auto assign_w_conv1 = tfop::Assign(root, w_conv1, init_w_conv1);
     data_flow = tfop::Conv2D(root, data_flow, w_conv1, {1, 1, 1, 1}, "SAME");
     auto b_conv1 = tfop::Variable(root, {32}, DT::DT_FLOAT);
@@ -140,8 +140,8 @@ void ImageClassifier::build_cnn_model()
     data_flow = tfop::MaxPool(root, data_flow, {1, 2, 2, 1}, {1, 2, 2, 1}, "SAME");
 
     // conv layer 2 < filter=[5*5*32*64] strides=[1*1*1*1] ==> [64*14*14*64]
-    auto w_conv2 = tfop::Variable(root, {5, 5, 32, 64}, tf::DataType::DT_FLOAT);
-    auto init_w_conv2 = tfop::RandomNormal(root, {5, 5, 32, 64}, tf::DataType::DT_FLOAT);
+    auto w_conv2 = tfop::Variable(root, {5, 5, 32, 64}, DT::DT_FLOAT);
+    auto init_w_conv2 = tfop::RandomNormal(root, {5, 5, 32, 64}, DT::DT_FLOAT);
     auto assign_w_conv2 = tfop::Assign(root, w_conv2, init_w_conv2);
     data_flow = tfop::Conv2D(root, data_flow, w_conv2, {1, 1, 1, 1}, "SAME");
     auto b_conv2 = tfop::Variable(root, {64}, DT::DT_FLOAT);
